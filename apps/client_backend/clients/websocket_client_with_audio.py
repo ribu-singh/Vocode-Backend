@@ -40,6 +40,11 @@ OUTPUT_SAMPLING_RATE = 44100
 CHUNK_SIZE = 4096  # bytes
 CHUNK_DURATION = CHUNK_SIZE / (SERVER_SAMPLING_RATE * 2)  # seconds (16-bit = 2 bytes per sample)
 
+# Buffer configuration for smooth playback
+INPUT_QUEUE_SIZE = 50  # Increased for better buffering
+OUTPUT_QUEUE_SIZE = 50  # Increased for better buffering
+BLOCKSIZE_MULTIPLIER = 2  # Larger blocksize for smoother audio
+
 
 async def websocket_client_with_audio(server_url: str):
     """
@@ -51,8 +56,9 @@ async def websocket_client_with_audio(server_url: str):
     print(f"Connecting to {server_url}...")
     
     # Audio queues (thread-safe for sounddevice callbacks)
-    audio_input_queue = thread_queue.Queue(maxsize=10)
-    audio_output_queue = thread_queue.Queue(maxsize=10)
+    # Increased queue sizes to prevent choppy audio
+    audio_input_queue = thread_queue.Queue(maxsize=INPUT_QUEUE_SIZE)
+    audio_output_queue = thread_queue.Queue(maxsize=OUTPUT_QUEUE_SIZE)
     
     # Flag to control audio streaming
     streaming_active = asyncio.Event()
@@ -102,54 +108,82 @@ async def websocket_client_with_audio(server_url: str):
                 if streaming_active.is_set():
                     # Convert numpy array to bytes
                     audio_bytes = indata.tobytes()
-                    # Put in queue (non-blocking)
+                    # Put in queue (non-blocking, drop oldest if full to prevent lag)
                     try:
                         audio_input_queue.put_nowait(audio_bytes)
                     except thread_queue.Full:
-                        pass  # Skip if queue is full
+                        # Drop oldest item to prevent lag buildup
+                        try:
+                            audio_input_queue.get_nowait()
+                            audio_input_queue.put_nowait(audio_bytes)
+                        except thread_queue.Empty:
+                            pass
             
             # Start audio output callback with resampling
             def output_callback(outdata, frames, time, status):
                 """Callback for speaker output with resampling (runs in separate thread)."""
                 if status:
                     print(f"Audio output status: {status}")
-                try:
-                    # Get audio from queue (non-blocking)
-                    audio_bytes = audio_output_queue.get_nowait()
-                    # Convert bytes to numpy array (16kHz from server)
-                    audio_array_16k = np.frombuffer(audio_bytes, dtype=np.int16)
+                
+                # Try to get multiple chunks to fill the output buffer smoothly
+                audio_chunks = []
+                total_samples = 0
+                
+                # Collect enough audio data to fill the output buffer
+                while total_samples < frames and not audio_output_queue.empty():
+                    try:
+                        audio_bytes = audio_output_queue.get_nowait()
+                        audio_array_16k = np.frombuffer(audio_bytes, dtype=np.int16)
+                        audio_chunks.append(audio_array_16k)
+                        total_samples += len(audio_array_16k)
+                    except thread_queue.Empty:
+                        break
+                
+                if audio_chunks:
+                    # Concatenate all chunks
+                    combined_audio_16k = np.concatenate(audio_chunks)
                     
                     # Resample from 16kHz to 44.1kHz to avoid chipmunk sound
                     if SERVER_SAMPLING_RATE != OUTPUT_SAMPLING_RATE:
-                        num_samples_out = int(len(audio_array_16k) * OUTPUT_SAMPLING_RATE / SERVER_SAMPLING_RATE)
-                        audio_array = resample(audio_array_16k, num_samples_out).astype(np.int16)
+                        num_samples_out = int(len(combined_audio_16k) * OUTPUT_SAMPLING_RATE / SERVER_SAMPLING_RATE)
+                        audio_array = resample(combined_audio_16k, num_samples_out).astype(np.int16)
                     else:
-                        audio_array = audio_array_16k
+                        audio_array = combined_audio_16k
                     
-                    # Reshape to match output format
-                    outdata[:len(audio_array)] = audio_array.reshape(-1, 1)
-                    if len(audio_array) < len(outdata):
-                        outdata[len(audio_array):] = 0  # Fill rest with silence
-                except thread_queue.Empty:
-                    outdata[:] = 0  # Play silence if no audio
+                    # Fill output buffer
+                    samples_to_write = min(len(audio_array), frames)
+                    outdata[:samples_to_write] = audio_array[:samples_to_write].reshape(-1, 1)
+                    
+                    # Fill remaining with silence if needed
+                    if samples_to_write < frames:
+                        outdata[samples_to_write:] = 0
+                else:
+                    # No audio available - fill with silence
+                    outdata[:] = 0
             
             # Start audio streams
             # Input: Capture at 16kHz (matches server)
+            # Use larger blocksize for smoother capture
+            input_blocksize = int(SERVER_SAMPLING_RATE * CHUNK_DURATION * BLOCKSIZE_MULTIPLIER)
             input_stream = sd.InputStream(
                 samplerate=SERVER_SAMPLING_RATE,
                 channels=1,
                 dtype=np.int16,
-                blocksize=int(SERVER_SAMPLING_RATE * CHUNK_DURATION),
-                callback=audio_callback
+                blocksize=input_blocksize,
+                callback=audio_callback,
+                latency='low'  # Low latency for real-time conversation
             )
             
             # Output: Play at 44.1kHz (typical speaker rate) with resampling
+            # Use larger blocksize for smoother playback
+            output_blocksize = int(OUTPUT_SAMPLING_RATE * CHUNK_DURATION * BLOCKSIZE_MULTIPLIER)
             output_stream = sd.OutputStream(
                 samplerate=OUTPUT_SAMPLING_RATE,
                 channels=1,
                 dtype=np.int16,
-                blocksize=int(OUTPUT_SAMPLING_RATE * CHUNK_DURATION),
-                callback=output_callback
+                blocksize=output_blocksize,
+                callback=output_callback,
+                latency='low'  # Low latency for real-time conversation
             )
             
             input_stream.start()
@@ -163,7 +197,7 @@ async def websocket_client_with_audio(server_url: str):
                         # Get audio chunk from queue (with timeout)
                         audio_bytes = await asyncio.get_event_loop().run_in_executor(
                             None,
-                            lambda: audio_input_queue.get(timeout=0.1)
+                            lambda: audio_input_queue.get(timeout=0.05)
                         )
                         
                         # Send to server
@@ -173,8 +207,8 @@ async def websocket_client_with_audio(server_url: str):
                         }
                         await websocket.send(json.dumps(audio_message))
                     except Exception:
-                        # Timeout or other error - continue
-                        await asyncio.sleep(0.01)
+                        # Timeout or other error - continue without blocking
+                        await asyncio.sleep(0.001)
                         continue
             
             async def receive_messages():
@@ -191,7 +225,12 @@ async def websocket_client_with_audio(server_url: str):
                             try:
                                 audio_output_queue.put_nowait(audio_bytes)
                             except thread_queue.Full:
-                                pass  # Skip if queue is full
+                                # Drop oldest audio to prevent lag buildup
+                                try:
+                                    audio_output_queue.get_nowait()
+                                    audio_output_queue.put_nowait(audio_bytes)
+                                except thread_queue.Empty:
+                                    pass
                                 
                         elif msg_type == WebSocketMessageType.TRANSCRIPT:
                             sender = data.get("sender", "unknown")
