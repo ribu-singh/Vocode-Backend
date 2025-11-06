@@ -14,32 +14,27 @@ This guide will help you deploy the Vocode WebSocket server to Google Cloud Plat
 
 1. **SSH into your GCP instance**:
    ```bash
-   gcloud compute ssh vocode-app --zone=us-central1-a
+   gcloud compute ssh YOUR_INSTANCE_NAME --zone=YOUR_ZONE
    ```
+   
+   Replace `YOUR_INSTANCE_NAME` and `YOUR_ZONE` with your actual instance name and zone.
 
-2. **Navigate to the project directory**:
-   ```bash
-   cd ~/vocode-core/apps/client_backend
-   ```
-
-3. **Install dependencies** (required):
+2. **Navigate to the project directory and install dependencies**:
    ```bash
    cd ~/vocode-core/apps/client_backend
    poetry install
    ```
    
-   **Important**: Make sure `fastapi` and `uvicorn` are installed. If you get "Command not found: uvicorn", run:
-   ```bash
-   poetry add fastapi "uvicorn[standard]"
-   poetry install
-   ```
+   > **Note**: The `pyproject.toml` should already include `fastapi` and `uvicorn`. If you encounter "Command not found: uvicorn", see the troubleshooting section.
 
 ### Option B: Deploy via SCP
 
 1. **From your local machine**, upload the client_backend directory:
    ```bash
-   gcloud compute scp --recurse apps/client_backend/ vocode-app:~/vocode-core/apps/client_backend/ --zone=us-central1-a
+   gcloud compute scp --recurse apps/client_backend/ YOUR_INSTANCE_NAME:~/vocode-core/apps/client_backend/ --zone=YOUR_ZONE
    ```
+   
+   Replace `YOUR_INSTANCE_NAME` and `YOUR_ZONE` with your actual instance name and zone.
 
 ## Step 2: Configure Environment Variables
 
@@ -122,30 +117,33 @@ This guide will help you deploy the Vocode WebSocket server to Google Cloud Plat
 
 1. **Get your instance's external IP** (from local machine):
    ```bash
-   gcloud compute instances describe vocode-server --zone=europe-west2-c --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
+   gcloud compute instances describe YOUR_INSTANCE_NAME --zone=YOUR_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
    ```
    
    Or check in GCP Console: Compute Engine → VM instances → your instance → External IP
 
 2. **Your WebSocket endpoint will be**:
    ```
-   ws://34.13.49.144:3000/conversation
+   ws://YOUR_EXTERNAL_IP:3000/conversation
    ```
 
-   Or if you've set up a domain:
+   Or if you've set up a domain with SSL:
    ```
-   ws://yourdomain.com:3000/conversation
+   wss://yourdomain.com/conversation
    ```
 
 ## Step 6: Set Up SSL/HTTPS (Recommended for Production)
 
 For production use, you should set up SSL/TLS:
 
-### Option A: Using a Load Balancer
+### Option A: Using a GCP Load Balancer
 
 1. **Create a GCP Load Balancer** with SSL certificate
-2. **Forward traffic** from port 443 to your instance's port 3000
-3. **Use WSS (WebSocket Secure)**: `wss://yourdomain.com/conversation`
+2. **Configure backend service** to forward traffic from port 443 to your instance's port 3000
+3. **Configure health checks** for your backend
+4. **Use WSS (WebSocket Secure)**: `wss://yourdomain.com/conversation`
+
+> **Note**: Load balancer setup is complex and beyond the scope of this guide. Refer to [GCP Load Balancer documentation](https://cloud.google.com/load-balancing/docs/load-balancing-overview).
 
 ### Option B: Using Nginx Reverse Proxy
 
@@ -245,6 +243,73 @@ ws.onmessage = (event) => {
 };
 ```
 
+## Step 8: Updating the Application After Code Changes
+
+After pushing new code to your repository, follow these steps to update the server:
+
+1. **SSH into your GCP instance**:
+   ```bash
+   gcloud compute ssh YOUR_INSTANCE_NAME --zone=YOUR_ZONE
+   ```
+   
+   Replace `YOUR_INSTANCE_NAME` and `YOUR_ZONE` with your actual instance name and zone.
+
+2. **Navigate to the project directory**:
+   ```bash
+   cd ~/vocode-core
+   ```
+
+3. **Pull the latest code**:
+   ```bash
+   git pull origin main
+   # Or: git pull origin <your-branch-name>
+   ```
+
+4. **Install any new dependencies**:
+   ```bash
+   cd ~/vocode-core/apps/client_backend
+   poetry install
+   ```
+
+5. **Restart the service** to apply changes:
+   ```bash
+   sudo systemctl restart vocode-websocket.service
+   ```
+
+6. **Verify the service is running**:
+   ```bash
+   sudo systemctl status vocode-websocket.service
+   ```
+
+7. **Check logs** to ensure everything started correctly:
+   ```bash
+   sudo journalctl -u vocode-websocket.service -n 50 --no-pager
+   ```
+
+### Quick Update Script
+
+A ready-to-use update script is available in the repository. To use it:
+
+1. **Copy the script** to your home directory (if not already there):
+   ```bash
+   cp ~/vocode-core/apps/client_backend/update-vocode.sh ~/update-vocode.sh
+   chmod +x ~/update-vocode.sh
+   ```
+
+2. **Run the update script**:
+   ```bash
+   ~/update-vocode.sh
+   ```
+
+The script will automatically:
+- Pull the latest code from the repository
+- Install any new dependencies
+- Restart the service
+- Verify the service is running
+- Display status information
+
+> **Note**: The script uses `git pull origin main` by default. If you're using a different branch, edit the script or use the manual steps above.
+
 ## Troubleshooting
 
 ### Service won't start / "Command not found: uvicorn"
@@ -277,12 +342,12 @@ ws.onmessage = (event) => {
 
 1. **Check if instance has the `http-server` tag** (from local machine):
    ```bash
-   gcloud compute instances describe vocode-server --zone=europe-west2-c --format='get(tags.items)'
+   gcloud compute instances describe YOUR_INSTANCE_NAME --zone=YOUR_ZONE --format='get(tags.items)'
    ```
    
    If `http-server` is missing, add it:
    ```bash
-   gcloud compute instances add-tags vocode-server --zone=europe-west2-c --tags=http-server
+   gcloud compute instances add-tags YOUR_INSTANCE_NAME --zone=YOUR_ZONE --tags=http-server
    ```
 
 2. **Alternative: Create firewall rule without target tags** (applies to all instances):
