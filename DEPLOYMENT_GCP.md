@@ -1,5 +1,8 @@
 # GCP Compute Instance Deployment Guide
 
+> **Note**: This guide is for deploying the local streaming conversation app (`quickstarts/stream-conversation.py`).  
+> For WebSocket server deployment, see [`apps/client_backend/DEPLOYMENT_GCP.md`](./apps/client_backend/DEPLOYMENT_GCP.md).
+
 This guide will walk you through deploying your vocode-core application to a Google Cloud Platform Compute Instance.
 
 ## Prerequisites

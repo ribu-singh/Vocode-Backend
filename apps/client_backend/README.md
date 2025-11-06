@@ -1,10 +1,10 @@
-# client_backend
+# Client Backend - WebSocket Server
 
 WebSocket-based real-time conversation server for Vocode. This server provides a WebSocket endpoint at `/conversation` that accepts audio input and streams audio responses back to clients.
 
 ## Quick Start
 
-### 1. Set up environment variables
+### 1. Set Up Environment Variables
 
 Create a `.env` file with your API keys:
 
@@ -14,11 +14,11 @@ DEEPGRAM_API_KEY=your_deepgram_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ```
 
-### 2. Configure your agent
+### 2. Configure Your Agent
 
 Edit `main.py` to customize your agent, transcriber, and synthesizer settings.
 
-### 3. Run the server
+### 3. Run the Server
 
 #### Option A: Using uvicorn directly
 
@@ -114,11 +114,11 @@ Send a `StopMessage` to end the conversation:
 
 ## Example Client
 
-See `websocket_client_example.py` for a basic Python client example:
+An example client implementation is available in the [`clients/`](./clients/) directory:
 
-```bash
-python websocket_client_example.py ws://localhost:3000
-```
+- **`websocket_client_with_audio.py`** - Full audio client with microphone/speaker support
+
+See [clients/README.md](./clients/README.md) for details.
 
 ## GCP Deployment
 
@@ -130,12 +130,13 @@ Quick steps:
 3. Configure firewall rules to allow port 3000
 4. Connect using `ws://YOUR_GCP_IP:3000/conversation`
 
-## Using with React SDK
+## Using with Frontend
 
-For production use with the Vocode React SDK, you'll need to:
+For production use with web frontends (React, Angular, etc.), you'll need to:
 1. Host your server (or use a tunnel like ngrok)
-2. Update your React app to connect to your server's WebSocket endpoint
+2. Update your frontend app to connect to your server's WebSocket endpoint
 3. Use WSS (WebSocket Secure) for production deployments
+4. Implement Web Audio API for microphone capture and audio playback
 
 ## API Configuration
 
@@ -145,3 +146,18 @@ The server uses:
 - **Synthesizer**: ElevenLabs (default) - requires `ELEVENLABS_API_KEY`
 
 You can customize these in `main.py` by modifying the `ConversationRouter` initialization.
+
+## Project Structure
+
+```
+apps/client_backend/
+├── main.py                    # Server application
+├── pyproject.toml            # Dependencies
+├── Dockerfile                # Docker configuration
+├── vocode-websocket.service # Systemd service file
+├── README.md                 # This file
+├── DEPLOYMENT_GCP.md        # GCP deployment guide
+└── clients/                  # Client examples
+    ├── README.md
+    └── websocket_client_with_audio.py
+```

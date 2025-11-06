@@ -5,8 +5,8 @@ This guide will help you deploy the Vocode WebSocket server to Google Cloud Plat
 ## Prerequisites
 
 - Google Cloud Platform account
-- GCP Compute Instance already set up (see `DEPLOYMENT_GCP.md`)
-- API keys for OpenAI, Deepgram, and Azure Speech Services
+- GCP Compute Instance already set up
+- API keys for OpenAI, Deepgram, and ElevenLabs
 
 ## Step 1: Deploy the Client Backend Application
 
@@ -182,7 +182,12 @@ For production use, you should set up SSL/TLS:
 
 ### Using Python Client
 
-1. **Create a test client** (see `websocket_client_example.py`):
+1. **Use the example client** from the `clients/` directory:
+   ```bash
+   python clients/websocket_client_with_audio.py ws://YOUR_EXTERNAL_IP:3000/conversation
+   ```
+
+   Or create a simple test script:
    ```python
    import asyncio
    import websockets

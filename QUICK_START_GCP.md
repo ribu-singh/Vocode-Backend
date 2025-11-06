@@ -1,5 +1,8 @@
 # Quick Reference: GCP Deployment Steps
 
+> **Note**: This guide is for deploying the local streaming conversation app (`quickstarts/stream-conversation.py`).  
+> For WebSocket server deployment, see [`apps/client_backend/DEPLOYMENT_GCP.md`](./apps/client_backend/DEPLOYMENT_GCP.md).
+
 ## TL;DR - Quick Deployment
 
 1. **Create instance**:
@@ -30,7 +33,7 @@
    export PATH="$HOME/.local/bin:$PATH"
 
    # Clone/deploy your code
-   git clone https://github.com/ribu-singh/Vocode-Backend vocode-core
+   git clone <your-repo-url> vocode-core
    cd vocode-core
    poetry install
    ```
@@ -84,14 +87,8 @@ sudo systemctl restart vocode.service
 
 ## Important Notes
 
-⚠️ **Security**: Your API keys are currently hardcoded in `stream-conversation.py`. Use environment variables instead!
+✅ **Security**: `stream-conversation.py` uses environment variables from `/etc/vocode/.env` or local `.env` files.  
+✅ API keys should never be hardcoded in the code.
 
-Consider updating `stream-conversation.py` to use:
-```python
-os.environ.get("OPENAI_API_KEY")
-os.environ.get("ELEVENLABS_API_KEY")
-os.environ.get("DEEPGRAM_API_KEY")
-```
-
-See `DEPLOYMENT_GCP.md` for full detailed instructions.
+See [`DEPLOYMENT_GCP.md`](./DEPLOYMENT_GCP.md) for full detailed instructions.
 

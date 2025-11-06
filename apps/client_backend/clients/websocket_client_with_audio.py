@@ -7,7 +7,7 @@ Requirements:
     pip install websockets sounddevice numpy scipy
 
 Usage:
-    python websocket_client_with_audio.py ws://YOUR_GCP_IP:3000/conversation
+    python websocket_client_with_audio.py ws://YOUR_GCP_IP:3000/conversation (current GCP IP: 34.13.49.144)
 """
 
 import asyncio

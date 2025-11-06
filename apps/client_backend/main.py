@@ -1,3 +1,21 @@
+"""
+Vocode WebSocket Server
+
+FastAPI server that provides a WebSocket endpoint for real-time voice conversations.
+Handles audio streaming, transcription, AI agent processing, and speech synthesis.
+
+Configuration:
+- Transcriber: Deepgram (default)
+- Agent: ChatGPT
+- Synthesizer: ElevenLabs
+
+Environment Variables:
+- OPENAI_API_KEY: Required for ChatGPT agent
+- DEEPGRAM_API_KEY: Required for speech-to-text
+- ELEVENLABS_API_KEY: Required for text-to-speech
+- ALLOWED_ORIGINS: CORS origins (default: "*")
+"""
+
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -9,14 +27,16 @@ from vocode.streaming.client_backend.conversation import ConversationRouter
 from vocode.streaming.models.agent import ChatGPTAgentConfig
 from vocode.streaming.models.message import BaseMessage
 from vocode.streaming.models.synthesizer import ElevenLabsSynthesizerConfig
-from vocode.streaming.synthesizer.eleven_labs_websocket_synthesizer import ElevenLabsWSSynthesizer
+from vocode.streaming.synthesizer.eleven_labs_websocket_synthesizer import (
+    ElevenLabsWSSynthesizer,
+)
 
 load_dotenv()
 
 app = FastAPI(docs_url=None)
 
 # Configure CORS for WebSocket connections from web clients
-# Allow all origins in production - restrict this based on your needs
+# In production, restrict ALLOWED_ORIGINS to specific domains
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -28,6 +48,7 @@ app.add_middleware(
 
 configure_pretty_logging()
 
+# Configure conversation router with agent, transcriber, and synthesizer
 conversation_router = ConversationRouter(
     agent_thunk=lambda: ChatGPTAgent(
         ChatGPTAgentConfig(
@@ -43,6 +64,7 @@ conversation_router = ConversationRouter(
             experimental_websocket=True,  # Enable WebSocket streaming API
         )
     ),
+    # transcriber_thunk uses default: DeepgramTranscriber
 )
 
 app.include_router(conversation_router.get_router())
