@@ -1,6 +1,7 @@
 import asyncio
 import queue
 import signal
+from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
@@ -28,11 +29,60 @@ from vocode.streaming.utils.worker import ThreadAsyncWorker
 
 configure_pretty_logging()
 
+# Determine .env file location
+# Priority: 1) /etc/vocode/.env (for systemd service), 2) .env in script directory, 3) .env in current directory
+# Note: When running as systemd service, EnvironmentFile=/etc/vocode/.env loads vars as environment variables,
+# which pydantic will automatically read. But we also check the file directly for local development.
+ENV_FILE = None
+env_file_found = False
+
+# Check for /etc/vocode/.env (systemd service location)
+if Path("/etc/vocode/.env").exists():
+    try:
+        # Verify we can read it (permission check)
+        with open("/etc/vocode/.env", "r"):
+            pass
+        ENV_FILE = "/etc/vocode/.env"
+        env_file_found = True
+        print(f"✓ Using systemd .env file: {ENV_FILE}")
+    except PermissionError:
+        print(f"⚠ Warning: Found /etc/vocode/.env but no read permission. Will use environment variables.")
+        ENV_FILE = None  # Will rely on environment variables loaded by systemd
+
+# Check for .env in script directory (local development)
+if not env_file_found and (Path(__file__).parent / ".env").exists():
+    ENV_FILE = str(Path(__file__).parent / ".env")
+    env_file_found = True
+    print(f"✓ Using .env file in script directory: {ENV_FILE}")
+
+# Check for .env in current directory
+if not env_file_found and Path(".env").exists():
+    ENV_FILE = ".env"
+    env_file_found = True
+    print(f"✓ Using .env file in current directory: {ENV_FILE}")
+
+# If no .env file found, pydantic will use environment variables (loaded by systemd) or defaults
+if not env_file_found:
+    ENV_FILE = None  # Let pydantic use environment variables only
+    print(f"⚠ Info: No .env file found. Will use environment variables or defaults.")
+    print(f"  Checked locations:")
+    print(f"    - /etc/vocode/.env")
+    print(f"    - {Path(__file__).parent / '.env'}")
+    print(f"    - .env (current directory: {Path.cwd()})")
+    print(f"  Note: If running as systemd service, environment variables from /etc/vocode/.env will be used.")
+
 
 class Settings(BaseSettings):
     """
     Settings for the streaming conversation quickstart.
-    These parameters can be configured with environment variables.
+    These parameters can be configured with environment variables or a .env file.
+    
+    The .env file can be located at:
+    - /etc/vocode/.env (for systemd service)
+    - quickstarts/.env (same directory as script)
+    - .env (current working directory)
+    
+    Environment variables take precedence over .env file.
     """
 
     openai_api_key: str = "ENTER_YOUR_OPENAI_API_KEY_HERE"
@@ -43,14 +93,45 @@ class Settings(BaseSettings):
 
     # This means a .env file can be used to overload these settings
     # ex: "OPENAI_API_KEY=my_key" will set openai_api_key over the default above
+    # If ENV_FILE is None, pydantic will only read from environment variables (useful for systemd service)
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE if ENV_FILE else None,  # None means don't read from file, only use env vars
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
 
 settings = Settings()
+
+# Validate that all required API keys are loaded
+missing_keys = []
+if not settings.openai_api_key or settings.openai_api_key == "ENTER_YOUR_OPENAI_API_KEY_HERE":
+    missing_keys.append("OPENAI_API_KEY")
+if not settings.elevenlabs_api_key or settings.elevenlabs_api_key == "ENTER_YOUR_ELEVENLABS_API_KEY_HERE":
+    missing_keys.append("ELEVENLABS_API_KEY")
+if not settings.deepgram_api_key or settings.deepgram_api_key == "ENTER_YOUR_DEEPGRAM_API_KEY_HERE":
+    missing_keys.append("DEEPGRAM_API_KEY")
+
+if missing_keys:
+    print("\n" + "="*60)
+    print("⚠️  ERROR: Missing required API keys!")
+    print("="*60)
+    print(f"Missing keys: {', '.join(missing_keys)}")
+    print(f"\nPlease set these in one of the following ways:")
+    print(f"1. Create a .env file at: {Path(__file__).parent / '.env'}")
+    print(f"2. Create a .env file in current directory: {Path.cwd() / '.env'}")
+    print(f"3. Set as environment variables")
+    print(f"\nExample .env file content:")
+    print(f"  OPENAI_API_KEY=your_key_here")
+    print(f"  ELEVENLABS_API_KEY=your_key_here")
+    print(f"  DEEPGRAM_API_KEY=your_key_here")
+    print("="*60 + "\n")
+    raise ValueError(f"Missing required API keys: {', '.join(missing_keys)}")
+else:
+    print("✓ All API keys loaded successfully")
+    print(f"  - OpenAI API key: {'*' * 20}...{settings.openai_api_key[-4:]}")
+    print(f"  - ElevenLabs API key: {'*' * 20}...{settings.elevenlabs_api_key[-4:]}")
+    print(f"  - Deepgram API key: {'*' * 20}...{settings.deepgram_api_key[-4:]}")
 
 
 # ---------------------------

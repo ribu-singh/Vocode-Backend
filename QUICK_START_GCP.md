@@ -30,7 +30,7 @@
    export PATH="$HOME/.local/bin:$PATH"
 
    # Clone/deploy your code
-   git clone <your-repo> vocode-core
+   git clone https://github.com/ribu-singh/Vocode-Backend vocode-core
    cd vocode-core
    poetry install
    ```
@@ -84,9 +84,9 @@ sudo systemctl restart vocode.service
 
 ## Important Notes
 
-⚠️ **Security**: Your API keys are currently hardcoded in `stream5.py`. Use environment variables instead!
+⚠️ **Security**: Your API keys are currently hardcoded in `stream-conversation.py`. Use environment variables instead!
 
-Consider updating `stream5.py` to use:
+Consider updating `stream-conversation.py` to use:
 ```python
 os.environ.get("OPENAI_API_KEY")
 os.environ.get("ELEVENLABS_API_KEY")
