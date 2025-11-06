@@ -41,7 +41,7 @@ User=$USERNAME
 WorkingDirectory=$WORK_DIR
 Environment="PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 EnvironmentFile=$ENV_FILE
-ExecStart=$HOME/.local/bin/poetry run python stream5.py
+ExecStart=$HOME/.local/bin/poetry run python stream-conversation.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
