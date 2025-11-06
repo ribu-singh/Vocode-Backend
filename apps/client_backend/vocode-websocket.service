@@ -1,0 +1,17 @@
+[Unit]
+Description=Vocode WebSocket Client Backend Server
+After=network.target
+
+[Service]
+Type=simple
+User=ribu_singh
+WorkingDirectory=/home/ribu_singh/vocode-core/apps/client_backend
+Environment="PATH=/home/ribu_singh/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+EnvironmentFile=/etc/vocode/.env
+ExecStart=/home/ribu_singh/.local/bin/poetry run uvicorn main:app --host 0.0.0.0 --port 3000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+

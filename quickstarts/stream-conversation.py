@@ -219,16 +219,11 @@ class ResamplingSpeakerOutput(RateLimitInterruptionsOutputDevice):
 
 
 async def main():
-    # Detect if running in headless environment (no TTY/interactive terminal)
-    # This happens when running as systemd service
-    import sys
-    use_default = not sys.stdin.isatty()
-    
     (
         microphone_input,
         speaker_output,
     ) = create_streaming_microphone_input_and_speaker_output(
-        use_default_devices=use_default,  # Use defaults for headless/server operation
+        use_default_devices=False,
     )
 
     # Create resampling output device that converts 16kHz to 44.1kHz

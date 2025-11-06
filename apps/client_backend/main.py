@@ -1,5 +1,7 @@
+import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from vocode.logging import configure_pretty_logging
 from vocode.streaming.agent.chat_gpt_agent import ChatGPTAgent
@@ -12,6 +14,17 @@ from vocode.streaming.synthesizer.azure_synthesizer import AzureSynthesizer
 load_dotenv()
 
 app = FastAPI(docs_url=None)
+
+# Configure CORS for WebSocket connections from web clients
+# Allow all origins in production - restrict this based on your needs
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins if "*" not in allowed_origins else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 configure_pretty_logging()
 
