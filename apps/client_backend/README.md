@@ -11,8 +11,7 @@ Create a `.env` file with your API keys:
 ```bash
 OPENAI_API_KEY=your_openai_api_key
 DEEPGRAM_API_KEY=your_deepgram_api_key
-AZURE_SPEECH_KEY=your_azure_speech_key  # Optional, if using Azure synthesizer
-AZURE_SPEECH_REGION=your_azure_region    # Optional, if using Azure synthesizer
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ```
 
 ### 2. Configure your agent
@@ -143,6 +142,6 @@ For production use with the Vocode React SDK, you'll need to:
 The server uses:
 - **Transcriber**: Deepgram (default) - requires `DEEPGRAM_API_KEY`
 - **Agent**: ChatGPT (default) - requires `OPENAI_API_KEY`
-- **Synthesizer**: Azure (default) - requires `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`
+- **Synthesizer**: ElevenLabs (default) - requires `ELEVENLABS_API_KEY`
 
 You can customize these in `main.py` by modifying the `ConversationRouter` initialization.

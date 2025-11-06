@@ -8,8 +8,9 @@ from vocode.streaming.agent.chat_gpt_agent import ChatGPTAgent
 from vocode.streaming.client_backend.conversation import ConversationRouter
 from vocode.streaming.models.agent import ChatGPTAgentConfig
 from vocode.streaming.models.message import BaseMessage
-from vocode.streaming.models.synthesizer import AzureSynthesizerConfig
-from vocode.streaming.synthesizer.azure_synthesizer import AzureSynthesizer
+from vocode.streaming.models.synthesizer import ElevenLabsSynthesizerConfig
+from vocode.streaming.models.audio import SamplingRate, AudioEncoding
+from vocode.streaming.synthesizer.eleven_labs_websocket_synthesizer import ElevenLabsWSSynthesizer
 
 load_dotenv()
 
@@ -35,9 +36,14 @@ conversation_router = ConversationRouter(
             prompt_preamble="Have a pleasant conversation about life",
         )
     ),
-    synthesizer_thunk=lambda output_audio_config: AzureSynthesizer(
-        AzureSynthesizerConfig.from_output_audio_config(
-            output_audio_config, voice_name="en-US-SteffanNeural"
+    synthesizer_thunk=lambda output_audio_config: ElevenLabsWSSynthesizer(
+        ElevenLabsSynthesizerConfig.from_output_audio_config(
+            output_audio_config,
+            api_key=os.getenv("ELEVENLABS_API_KEY"),
+            voice_id="21m00Tcm4TlvDq8ikWAM",  # Default voice (Rachel)
+            sampling_rate=SamplingRate.RATE_16000,  # Use 16kHz for free tier compatibility
+            audio_encoding=AudioEncoding.LINEAR16,
+            experimental_websocket=True,  # Enable WebSocket streaming API
         )
     ),
 )
