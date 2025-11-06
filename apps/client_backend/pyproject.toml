@@ -10,6 +10,8 @@ python = ">=3.11,<3.12"
 python-dotenv = "^1.0.1"
 vocode = "0.1.113"
 elevenlabs = "^1.2.2"
+fastapi = "^0.111.0"
+uvicorn = {extras = ["standard"], version = "^0.30.0"}
 
 
 [build-system]
