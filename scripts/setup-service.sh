@@ -57,8 +57,28 @@ sudo chown $USERNAME:$USERNAME "$ENV_FILE"
 
 # Configure PulseAudio for headless operation
 echo "🔊 Configuring PulseAudio..."
-sudo sed -i '/^load-module module-null-sink/d' /etc/pulse/default.pa
-echo "load-module module-null-sink sink_name=null_output" | sudo tee -a /etc/pulse/default.pa > /dev/null
+if [ -f "/etc/pulse/default.pa" ]; then
+    sudo sed -i '/^load-module module-null-sink/d' /etc/pulse/default.pa
+    echo "load-module module-null-sink sink_name=null_output" | sudo tee -a /etc/pulse/default.pa > /dev/null
+    echo "✓ PulseAudio configured"
+else
+    echo "⚠️  PulseAudio not found. Installing..."
+    sudo apt-get update -qq
+    sudo apt-get install -y pulseaudio pulseaudio-utils
+    # Create default.pa if it doesn't exist
+    if [ ! -f "/etc/pulse/default.pa" ]; then
+        sudo mkdir -p /etc/pulse
+        sudo tee /etc/pulse/default.pa > /dev/null <<'PAEOF'
+.fail
+load-module module-native-protocol-unix
+load-module module-null-sink sink_name=null_output
+PAEOF
+    else
+        sudo sed -i '/^load-module module-null-sink/d' /etc/pulse/default.pa
+        echo "load-module module-null-sink sink_name=null_output" | sudo tee -a /etc/pulse/default.pa > /dev/null
+    fi
+    echo "✓ PulseAudio installed and configured"
+fi
 
 # Reload systemd and enable service
 echo "🔄 Reloading systemd daemon..."
